@@ -2,7 +2,7 @@ from os import stat
 from peewee import *
 import jsonpickle
 
-from plotters import GraphPlotter
+from plotters import GraphPlotter, FigurePlotter
 
 db = SqliteDatabase("plotterbot.sqlite")
 
@@ -18,6 +18,7 @@ class JSONField(TextField):
 
 class State:
     NEUTRAL = 0
+
     ENTERING_EXPRESSION = 1
     TUNING_GRAPH = 2
     SETTING_XLIM = 3
@@ -26,13 +27,17 @@ class State:
     SETTING_YLAB = 6
     SETTING_TITLE = 7
 
+    CHOOSING_SHAPE = 8
+    ENTERING_SHAPE_PROPS = 9
+    EDITING_STYLE = 10
+    SETTING_FILL_COLOR = 11
+    SETTING_STROKE_COLOR = 12
+    SETTING_STROKE_WIDTH = 13
+
 
 class User(Model):
     uid = IntegerField(primary_key=True)
     state = IntegerField(default=State.NEUTRAL)
-
-    # graph_plotter = ForeignKeyField(GraphPlotterModel, null=True)
-    # figure_plotter = ForeignKeyField(FigurePlotterModel, null=True)
 
     @staticmethod
     def set_state(uid, new_state):
@@ -95,4 +100,31 @@ class GraphPlotterModel(Model):
 
 
 class FigurePlotterModel(Model):
-    pass
+    creator = ForeignKeyField(User)
+    shapes = JSONField(default=[])
+
+    style_config = JSONField(default={
+        'fill': True,
+        'stroke': True,
+        'fill_color': 'black',
+        'stroke_color': 'black',
+        'stroke_width': 3
+    })
+
+    current_shape_type = CharField(null=True)
+    current_shape = JSONField(null=True)
+
+    @staticmethod
+    def get_painter(uid):
+        fpm = FigurePlotterModel.get(
+            FigurePlotterModel.creator == uid
+        )
+
+        fp = FigurePlotter(
+            shapes=fpm.shapes
+        )
+
+        return fp
+
+    class Meta:
+        database = db
